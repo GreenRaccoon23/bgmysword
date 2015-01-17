@@ -21,33 +21,33 @@ I'll show you how to install the program. But first, you need to have `Go` (Goog
 ###Windows  
 1. Open `cmd.exe`. (Either by typing 'cmd.exe' on the Start menu's searchbar or by following the instructions [here](http://windows.microsoft.com/en-us/windows-vista/open-a-command-prompt-window)).  
 2. Run these commands:
-⋅⋅⋅`go get github.com/PuerkitoBio/goquery`
-⋅⋅⋅`go get github.com/fatih/color`
-⋅⋅⋅`go get github.com/mattn/go-sqlite3`
+   `go get github.com/PuerkitoBio/goquery`
+   `go get github.com/fatih/color`
+   `go get github.com/mattn/go-sqlite3`
 
 3. Keep the black `cmd.exe` window open and go to the next set of instructions.  
 
 ###Linux (Ubuntu, Arch, etc.)
 1. Open `Terminal` (ctrl+alt+t).
 2. Run these commands:
-...`go get github.com/PuerkitoBio/goquery`
-...`go get github.com/fatih/color`
-...`go get github.com/mattn/go-sqlite3`
+   `go get github.com/PuerkitoBio/goquery`
+   `go get github.com/fatih/color`
+   `go get github.com/mattn/go-sqlite3`
 
 3. Keep Terminal open.  
 
 ##Instructions to Install bgmysword  
 ###Windows  
 1. With the black `cmd.exe` window open, run this command:
-...`go get github.com/GreenRaccoon23/bgmysword`
+   `go get github.com/GreenRaccoon23/bgmysword`
 
 2. This *should* install it automatically (I haven't been able to test it on another computer yet). Run it like this (replacing KJV with the translation you want):
-...`bgmysword KJV`
+   `bgmysword KJV`
 
 ###Linux (Ubuntu, Arch, etc.)  
 1. With Terminal open, run this command:
-...`go get github.com/GreenRaccoon23/bgmysword`
+   `go get github.com/GreenRaccoon23/bgmysword`
 
 2. This *should* install it automatically (I haven't been able to test it on another computer yet). Run it like this (replacing KJV with the translation you want):
-...`bgmysword KJV`
+   `bgmysword KJV`
 

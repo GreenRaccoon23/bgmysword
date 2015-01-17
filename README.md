@@ -4,7 +4,7 @@ Program to generate MySword Bible modules by looking up non-copyrighted Bibles o
 Emphasis on **NON**-copyrighted  
 
 Before you can run the script, you need to have `Go` (Google's programming language) installed and a couple other Go modules installed (it's easy; don't worry).  
-##Instructions to Install Go##  
+##Instructions to Install Go  
 ###Windows  
 1. Go to the `Go` download page: [https://golang.org/dl/](https://golang.org/dl/)  
 2. Download the `.msi` file (e.g. `go1.4.1.windows-amd64.msi`).

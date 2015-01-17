@@ -10,8 +10,10 @@ I'll show you how to install the program. But first, you need to have `Go` (Goog
 1. Go to the `Go` download page: [https://golang.org/dl/](https://golang.org/dl/)  
 2. Download the `.msi` file (e.g. `go1.4.1.windows-amd64.msi`).
 3. Double-click the `.msi` to install Go.  
+
 ###Ubuntu
 1. Run `sudo apt-get install golang`  
+
 ###Arch Linux  
 1. Run `sudo pacman -S go`
 
@@ -25,6 +27,7 @@ go get github.com/fatih/color
 go get github.com/mattn/go-sqlite3
 ```
 3. Keep the black `cmd.exe` window open and go to the next set of instructions.  
+
 ###Linux (Ubuntu, Arch, etc.)
 1. Open `Terminal` (ctrl+alt+t).
 2. Run these commands:
@@ -34,6 +37,7 @@ go get github.com/fatih/color
 go get github.com/mattn/go-sqlite3
 ```
 3. Keep Terminal open.  
+
 ##Instructions to Install bgmysword  
 ###Windows  
 1. With the black `cmd.exe` window open, run this command:
@@ -44,6 +48,7 @@ go get github.com/GreenRaccoon23/bgmysword
 ```
 bgmysword KJV
 ```  
+
 ###Linux (Ubuntu, Arch, etc.)  
 1. With Terminal open, run this command:
 ```

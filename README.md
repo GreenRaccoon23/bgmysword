@@ -2,6 +2,7 @@
 Program to generate MySword Bible modules by looking up non-copyrighted Bibles on biblegateway.com.  
 (Written in Go/Golang)  
 Emphasis on **NON**-copyrighted  
+Please do not distribute any modules created by this program.
 
 I'll show you how to install the program. But first, you need to have `Go` (Google's programming language) installed and a couple other `Go` modules installed (it's easy; don't worry).  
 ##Instructions to Install Go  

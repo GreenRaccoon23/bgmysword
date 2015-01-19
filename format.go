@@ -26,6 +26,12 @@ func combine(args ...string) string {
 	return str(args)
 }
 
+func appendCombine(slice []string, args ...string) (combined string) {
+	appendedSlice := append(slice, args...)
+	combined = str(appendedSlice)
+	return
+}
+
 func strLast(s string) string {
 	last := len(s) - 1
 	return string([]rune(s)[last])

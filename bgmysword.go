@@ -3,19 +3,19 @@ package main
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/fatih/color"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"unicode"
 	//"github.com/mattn/go-sqlite3"
+	//"github.com/fatih/color"
 )
 
 var (
 	translation string
 	transName   string
-	base_url    []string
+	baseUrl     string
 	doc         *goquery.Document
 	footnoteMap = make(map[string]string)
 	//db          *sql.DB
@@ -23,40 +23,42 @@ var (
 )
 
 func init() {
-	defer color.Unset()
+	defer ColorUnset()
+	ImgINRI()
 	if len(os.Args) > 1 {
 		translation = os.Args[1]
 	} else {
 		translation = inputTranslation()
 	}
-	base_url = genUrl()
+	genBaseUrl()
 	copyrightFetch()
 }
 
-func genUrl() []string {
-	pre_url := "https://www.biblegateway.com/passage/?version="
-	mid_url := "&search="
-	base_url := []string{pre_url, translation, mid_url}
-	return base_url
+func genBaseUrl() {
+	preUrl := "https://www.biblegateway.com/passage/?version="
+	midUrl := "&search="
+	baseUrl = combine(preUrl, translation, midUrl)
+	return
 }
 
-func concatUrl(book, chap string) string {
-	url_slice := append(base_url, book, "+", chap)
-	return str(url_slice)
+func genFullUrl(book, chap string) (url string) {
+	url = combine(baseUrl, book, "+", chap)
+	return
 }
 
-func DocIt(url string) *goquery.Document {
-	theDocIsIn, err := goquery.NewDocument(url)
+func genDoc(url string) (doc *goquery.Document) {
+	var err error
+	doc, err = goquery.NewDocument(url)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return theDocIsIn
+	return
 }
 
 func copyrightFetch() {
 	var copyrightInfo, publisherInfo string
-	url := concatUrl("Genesis", "1")
-	copyrightDoc := DocIt(url)
+	url := genFullUrl("Genesis", "1")
+	copyrightDoc := genDoc(url)
 	copyrightDoc.Find(".publisher-info-bottom").Each(func(i int, s *goquery.Selection) {
 		copyrightInfo = s.Find("p").Text()
 		publisherInfo = s.Find("p a").Text()
@@ -66,8 +68,8 @@ func copyrightFetch() {
 }
 
 func main() {
-	defer color.Unset()
-	imgINRI()
+	defer ColorUnset()
+	ImgSword()
 	genBible()
 	progressTranslation()
 	defer tx.Commit()
@@ -100,7 +102,7 @@ func chapterLoop(data BibleArchive) {
 	for c := 1; c <= cRange; c++ {
 		progressChapter(c, cRange)
 		currentChapter := strconv.Itoa(c)
-		url := concatUrl(data.Book, currentChapter)
+		url := genFullUrl(data.Book, currentChapter)
 		chapterText := parseChapter(url)
 		for i := 0; i < len(chapterText); i++ {
 			verseNumber := i + 1
@@ -112,11 +114,11 @@ func chapterLoop(data BibleArchive) {
 }
 
 func parseChapter(url string) []string {
-	doc = DocIt(url)
+	doc = genDoc(url)
 	cleanDoc()
-	queryClass, vRange := analyseDoc()
-	prepDoc(queryClass)
-	chapterText := verseLoop(queryClass, vRange)
+	chapterClass, vRange := analyseDoc()
+	prepDoc(chapterClass)
+	chapterText := verseLoop(chapterClass, vRange)
 	return chapterText
 }
 
@@ -139,14 +141,14 @@ func analyseDoc() (string, int) {
 	})
 	// Note the number of verses and the html class which denotes passage text.
 	lastClass, _ := doc.Find("p .text").Last().Attr("class")
-	baseClass := prefixHyphenSecond(lastClass)
-	queryClass := suffixSpace(baseClass)
+	doubleClass := prefixHyphenSecond(lastClass)
+	chapterClass := suffixSpace(doubleClass)
 	lastVerse := suffixHyphenSecond(lastClass)
 	vRange, _ := strconv.Atoi(lastVerse)
-	return queryClass, vRange
+	return chapterClass, vRange
 }
 
-func prepDoc(queryClass string) {
+func prepDoc(chapterClass string) {
 	// Mark titles.
 	doc.Find("h3 .text").Each(func(i int, s *goquery.Selection) {
 		s.SetAttr("id", "title")
@@ -154,17 +156,17 @@ func prepDoc(queryClass string) {
 	// Mark the opening line of each paragraph.
 	doc.Find("p").Each(func(i int, s *goquery.Selection) {
 		class, _ := s.Contents().Attr("class")
-		if strings.Contains(class, queryClass) {
+		if strings.Contains(class, chapterClass) {
 			s.Contents().First().SetAttr("id", "paragraph")
 		}
 	})
 }
 
-func verseLoop(queryClass string, vRange int) []string {
+func verseLoop(chapterClass string, vRange int) []string {
 	var chapterText []string
 	for i := 1; i <= vRange; i++ {
 		v := strconv.Itoa(i)
-		currClass := str([]string{queryClass, v})
+		currClass := str([]string{chapterClass, v})
 		chapterText = append(chapterText, parseVerse(currClass))
 	}
 	return chapterText
@@ -261,8 +263,7 @@ func fmtTitle(s *goquery.Selection, vTemp []string) []string {
 	return append(vTemp, "<TS>", s.Text(), "<Ts>")
 }
 
-func fmtParagraph(vTemp []string) []string {
-	var pTemp []string
+func fmtParagraph(vTemp []string) (pTemp []string) {
 	var formatted bool
 	for _, s := range vTemp {
 		if strings.Contains(s, "<TS>") {
@@ -276,16 +277,15 @@ func fmtParagraph(vTemp []string) []string {
 	if formatted == false {
 		pTemp = append(vTemp, "<CM>")
 	}
-	return pTemp
+	return
 }
 
-func fmtTitleParagraph(vTemp []string, ts int) []string {
-	var pTemp []string
+func fmtTitleParagraph(vTemp []string, ts int) (pTemp []string) {
 	pTemp = append(vTemp[:ts], "<CM>")
 	for _, s := range vTemp[ts:] {
 		pTemp = append(pTemp, s)
 	}
-	return pTemp
+	return
 }
 
 func fmtDefault(sel *goquery.Selection) string {

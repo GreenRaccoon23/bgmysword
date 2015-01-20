@@ -139,6 +139,10 @@ func PrintCenter(c *color.Color, t string) {
 	c.Printf("%v%v%v\n", s, t, s)
 }
 
+func printRemovedFile(fileName string) {
+	Black.Println("Removed", fileName)
+}
+
 func Break(c *color.Color, s string) {
 	c.Println(strings.Repeat(s, 79))
 }

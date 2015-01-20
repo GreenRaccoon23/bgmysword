@@ -99,6 +99,10 @@ func BLine() {
 	Break("=")
 }
 
+func printRemovedFile(fileName string) {
+	fmt.Println("Removed", fileName)
+}
+
 func progressTranslation() {
 	BLine()
 	fmt.Println(transName)

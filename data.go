@@ -95,7 +95,7 @@ func genBible() {
 	fileName := str([]string{translation, ext})
 	if _, err := os.Stat(fileName); err == nil {
 		os.Remove(fileName)
-		Black.Println("Removed", fileName)
+		printRemovedFile(fileName)
 	}
 	var err error
 	db, err = sql.Open("sqlite3", fileName)

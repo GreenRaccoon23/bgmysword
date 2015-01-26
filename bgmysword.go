@@ -13,11 +13,13 @@ import (
 )
 
 var (
-	translation string
-	transName   string
-	baseUrl     string
-	doc         *goquery.Document
-	footnoteMap = make(map[string]string)
+	translation    string
+	transName      string
+	baseUrl        string
+	chapterText    []string
+	doc            *goquery.Document
+	footnoteMap    = make(map[string]string)
+	containsPoetry bool
 	//db          *sql.DB
 	//tx          *sql.Tx
 )
@@ -48,9 +50,16 @@ func genFullUrl(book, chap string) (url string) {
 
 func genDoc(url string) (doc *goquery.Document) {
 	var err error
+	var tried bool
 	doc, err = goquery.NewDocument(url)
 	if err != nil {
-		log.Fatal(err)
+		if tried {
+			log.Fatal(err)
+		} else {
+			tried = true
+			doc = genDoc(url)
+			return
+		}
 	}
 	return
 }
@@ -59,11 +68,9 @@ func copyrightFetch() {
 	var copyrightInfo, publisherInfo string
 	url := genFullUrl("Genesis", "1")
 	copyrightDoc := genDoc(url)
-	copyrightDoc.Find(".publisher-info-bottom").Each(func(i int, s *goquery.Selection) {
-		copyrightInfo = s.Find("p").Text()
-		publisherInfo = s.Find("p a").Text()
-		transName = s.Find("strong").Text()
-	})
+	copyrightInfo = copyrightDoc.Find(".publisher-info-bottom p").Text()
+	publisherInfo = copyrightDoc.Find(".publisher-info-bottom p a").Text()
+	transName = copyrightDoc.Find(".publisher-info-bottom strong").Text()
 	copyrightAccept(copyrightInfo, publisherInfo)
 }
 
@@ -103,33 +110,40 @@ func chapterLoop(data BibleArchive) {
 		progressChapter(c, cRange)
 		currentChapter := strconv.Itoa(c)
 		url := genFullUrl(data.Book, currentChapter)
-		chapterText := parseChapter(url)
+		parseChapter(url)
 		for i := 0; i < len(chapterText); i++ {
 			verseNumber := i + 1
 			verseText := chapterText[i]
 			sqlInsBible(currentBook, currentChapter, verseNumber, verseText)
 		}
+		chapterText = nil
 	}
 	fmt.Printf("\n")
 }
 
-func parseChapter(url string) []string {
+func parseChapter(url string) {
+	// Fetch webpage for current chapter.
 	doc = genDoc(url)
+	// Filter out unneeded text.
 	cleanDoc()
+	// Find footnotes, number of verses, and the html class for the current chapter.
 	chapterClass, vRange := analyseDoc()
+	// Mark titles and paragraphs.
 	prepDoc(chapterClass)
-	chapterText := verseLoop(chapterClass, vRange)
-	return chapterText
+	// Parse the webpage.
+	verseLoop(chapterClass, vRange)
 }
 
 func cleanDoc() {
+	// Remove chapter numbers, verse numbers, and cross references
+	//    (because MySword formats them differently/automatically).
 	rejects := []string{".chapternum", ".versenum", ".crossreference"}
 	for _, reject := range rejects {
 		doc.Find(reject).Remove()
 	}
 }
 
-func analyseDoc() (string, int) {
+func analyseDoc() (chapterClass string, vRange int) {
 	// Make a map of the footnotes together with their expanded text.
 	doc.Find("ol").Contents().Each(func(i int, s *goquery.Selection) {
 		id, _ := s.Attr("id")
@@ -142,15 +156,18 @@ func analyseDoc() (string, int) {
 	// Note the number of verses and the html class which denotes passage text.
 	lastClass, _ := doc.Find("p .text").Last().Attr("class")
 	doubleClass := prefixHyphenSecond(lastClass)
-	chapterClass := suffixSpace(doubleClass)
+	chapterClass = suffixSpace(doubleClass)
 	lastVerse := suffixHyphenSecond(lastClass)
-	vRange, _ := strconv.Atoi(lastVerse)
-	return chapterClass, vRange
+	vRange, _ = strconv.Atoi(lastVerse)
+	return
 }
 
 func prepDoc(chapterClass string) {
 	// Mark titles.
 	doc.Find("h3 .text").Each(func(i int, s *goquery.Selection) {
+		s.SetAttr("id", "title")
+	})
+	doc.Find("h4 .text").Each(func(i int, s *goquery.Selection) {
 		s.SetAttr("id", "title")
 	})
 	// Mark the opening line of each paragraph.
@@ -162,42 +179,55 @@ func prepDoc(chapterClass string) {
 	})
 }
 
-func verseLoop(chapterClass string, vRange int) []string {
-	var chapterText []string
+func verseLoop(chapterClass string, vRange int) {
 	for i := 1; i <= vRange; i++ {
+		// For each verse:
 		v := strconv.Itoa(i)
 		currClass := str([]string{chapterClass, v})
+		// Each element of chapterText will hold the text
+		//    for each verse of the current chapter.
 		chapterText = append(chapterText, parseVerse(currClass))
 	}
-	return chapterText
 }
 
-func parseVerse(vClass string) string {
+func parseVerse(vClass string) (fullVerseText string) {
+	var targetClass string
 	var vTemp []string
-	var poetry bool
+	containsPoetry = false
+	// For books that begin with a number, do a workaround.
+	//    I.e., rather than searching the chapter for the current verse,
+	//          iterate through ALL of the chapter's text elements,
+	//          and for each one, test whether it belongs in the current verse.
 	digitPrefix := unicode.IsDigit([]rune(vClass)[0])
 	switch digitPrefix {
-	case false:
-		vClass = combine(".", vClass)
-		doc.Find(vClass).Each(func(i int, s *goquery.Selection) {
-			vTemp, poetry = checkPoetry(s, vTemp, poetry)
-		})
 	case true:
+		// For books that begin with a number:
+		targetClass = combine("text ", vClass)
 		doc.Find(".text").Each(func(i int, s *goquery.Selection) {
 			class, _ := s.Attr("class")
-			if strings.Contains(class, vClass) {
-				vTemp, poetry = checkPoetry(s, vTemp, poetry)
+			switch class {
+			case targetClass:
+				// If text belongs in the current verse:
+				vTemp = analyseTag(s, vTemp)
 			}
 		})
+	default:
+		// For all other books:
+		targetClass = combine(".", vClass)
+		// Find the current verse.
+		doc.Find(targetClass).Each(func(i int, s *goquery.Selection) {
+			vTemp = analyseTag(s, vTemp)
+		})
 	}
-	if poetry {
-		vTemp = cleanIndent(vTemp)
+	// Clean up indentation for poetry verses.
+	if containsPoetry {
+		vTemp = cleanIndentTags(vTemp)
 	}
-	vFull := str(vTemp)
-	return vFull
+	fullVerseText = str(vTemp)
+	return
 }
 
-func checkPoetry(s *goquery.Selection, vTemp []string, poetry bool) ([]string, bool) {
+func analyseTag(s *goquery.Selection, vTemp []string) (vFmtd []string) {
 	var classParents string
 	classParents, _ = s.Parents().Attr("class")
 	if strings.Contains(classParents, "chapter") {
@@ -205,147 +235,210 @@ func checkPoetry(s *goquery.Selection, vTemp []string, poetry bool) ([]string, b
 	}
 	switch classParents {
 	case "line":
-		vTemp = parsePoetryLine(s, vTemp)
-		poetry = true
+		// If first-line poetry:
+		containsPoetry = true
+		vFmtd = parsePoetryLine(s, vTemp)
+		return
 	case "indent-1":
-		vTemp = parsePoetryIndent(s, vTemp)
+		// If second-line poetry:
+		vFmtd = parsePoetryIndent(s, vTemp)
+		return
 	default:
-		vTemp = parseProse(s, vTemp)
+		// If normal text:
+		vFmtd = parseProse(s, vTemp)
+		return
 	}
-	return vTemp, poetry
 }
 
-func parseProse(s *goquery.Selection, vTemp []string) []string {
+func parseProse(s *goquery.Selection, vTemp []string) (vFmtd []string) {
 	id, _ := s.Attr("id")
 	switch id {
-	case "paragraph":
-		pTemp := fmtParagraph(vTemp)
-		vTemp = append(pTemp, fmtDefault(s.Contents()))
 	case "title":
-		vTemp = fmtTitle(s, vTemp)
+		// If this html id tag was labeled "title" earlier:
+		vFmtd = fmtTitle(s, vTemp)
+		return
+	case "paragraph":
+		// If this html id tag was labeled "paragraph" earlier:
+		vTemp = tagParagraph(vTemp)
+		fallthrough
 	default:
-		vTemp = append(vTemp, fmtDefault(s.Contents()))
+		// If normal content:
+		vFmtd = parseText(s.Contents(), vTemp)
+		return
 	}
-	return vTemp
 }
 
-func parsePoetryLine(s *goquery.Selection, vTemp []string) []string {
+func parsePoetryLine(s *goquery.Selection, vTemp []string) (vFmtd []string) {
 	id, _ := s.Attr("id")
 	switch id {
-	case "paragraph":
-		pTemp := fmtParagraph(vTemp)
-		vTemp = append(pTemp, "<PI1>", fmtDefault(s.Contents()))
 	case "title":
-		vTemp = fmtTitle(s, vTemp)
+		// If this html id tag was labeled "title" earlier:
+		vFmtd = fmtTitle(s, vTemp)
+		return
+	case "paragraph":
+		// If this html id tag was labeled "paragraph" earlier:
+		vTemp = tagParagraph(vTemp)
+		fallthrough
 	default:
-		vTemp = append(vTemp, "<PI1>", fmtDefault(s.Contents()))
+		// If normal content:
+		vTemp = append(vTemp, "<PI1>")         // Tag to single-indent
+		vTemp = parseText(s.Contents(), vTemp) //     Indented text
+		vFmtd = append(vTemp, "<CI>")          // Tag to close indent
+		return
 	}
-	vTemp = append(vTemp, "<CI>")
-	return vTemp
 }
 
-func parsePoetryIndent(s *goquery.Selection, vTemp []string) []string {
+func parsePoetryIndent(s *goquery.Selection, vTemp []string) (vFmtd []string) {
 	id, _ := s.Contents().Attr("id")
 	switch id {
-	case "paragraph":
-		pTemp := fmtParagraph(vTemp)
-		vTemp = append(pTemp, "<PI3>", fmtDefault(s.Contents()))
 	case "title":
-		vTemp = fmtTitle(s, vTemp)
+		// If this html id tag was labeled "title" earlier:
+		vFmtd = fmtTitle(s, vTemp)
+	case "paragraph":
+		// If this html id tag was labeled "paragraph" earlier:
+		vTemp = tagParagraph(vTemp)
+		fallthrough
 	default:
-		vTemp = append(vTemp, "<PI3>", fmtDefault(s.Contents()))
-	}
-	vTemp = append(vTemp, "<CI>")
-	return vTemp
-}
+		// If normal content:
+		vTemp = append(vTemp, "<PI3>")         // Tag to triple-indent
+		vTemp = parseText(s.Contents(), vTemp) //     Indented text
+		vFmtd = append(vTemp, "<CI>")          // Tag to close indent
 
-func fmtTitle(s *goquery.Selection, vTemp []string) []string {
-	return append(vTemp, "<TS>", s.Text(), "<Ts>")
-}
-
-func fmtParagraph(vTemp []string) (pTemp []string) {
-	var formatted bool
-	for _, s := range vTemp {
-		if strings.Contains(s, "<TS>") {
-			new := strings.Replace(s, "<TS>", "<CM><TS>", -1)
-			pTemp = append(pTemp, new)
-			formatted = true
-		} else {
-			pTemp = append(pTemp, s)
-		}
-	}
-	if formatted == false {
-		pTemp = append(vTemp, "<CM>")
 	}
 	return
 }
 
-func fmtTitleParagraph(vTemp []string, ts int) (pTemp []string) {
-	pTemp = append(vTemp[:ts], "<CM>")
-	for _, s := range vTemp[ts:] {
-		pTemp = append(pTemp, s)
+func tagParagraph(vTemp []string) (vFmtd []string) {
+	vLength := len(vTemp)
+	switch vLength {
+	case 0:
+		// If the new paragraph starts at the begininning of the verse:
+		tagParagraphPreviousVerse()
+		vFmtd = vTemp
+		return
+	default:
+		// If the new paragraph starts in the middle of the verse:
+		vFmtd = tagParagraphCurrentVerse(vTemp)
+		return
 	}
+}
+
+func tagParagraphPreviousVerse() {
+	var cLength int
+	cLength = len(chapterText)
+	if cLength > 0 {
+		// If the new paragraph does NOT start at the beginning of the chapter,
+		//    put the paragraph tag at the very end of the last verse.
+		cLast := cLength - 1
+		prevVerse := chapterText[cLast]
+		prevVerseNew := combine(prevVerse, "<CM>")
+		cTemp := append(chapterText[:cLast], prevVerseNew)
+		chapterText = nil
+		chapterText = cTemp
+	}
+}
+
+func tagParagraphCurrentVerse(vTemp []string) (vFmtd []string) {
+	var vLast int
+	vLength := len(vTemp)
+	vLast = vLength - 1
+	switch vTemp[vLast] {
+	case "<Ts>":
+		// If the new paragraph DOES begin after a title,
+		//    the paragraph tag is NOT unneeded.
+		vFmtd = vTemp
+		return
+	default:
+		// If the new paragraph does NOT begin after a title,
+		//    a paragraph tag IS needed.
+		vFmtd = append(vTemp[:vLast], "<CM>", vTemp[vLast])
+		return
+	}
+}
+
+func fmtTitle(s *goquery.Selection, vTemp []string) (vFmtd []string) {
+	vTemp = append(vTemp, "<TS>") // Opening title tag
+	vTemp = parseText(s, vTemp)   //    Title text
+	vFmtd = append(vTemp, "<Ts>") // Closing title tag
 	return
 }
 
-func fmtDefault(sel *goquery.Selection) string {
-	var sTemp []string
+func parseText(sel *goquery.Selection, vTemp []string) (vFmtd []string) {
+	var textTemp []string
 	for i := range sel.Nodes {
+		// For each part of the current verse's text in the html document:
 		s := sel.Eq(i)
-		class, _ := s.Attr("class")
-		woj := strings.Contains(class, "woj")
-		footnote := strings.Contains(class, "footnote")
-		switch {
-		case woj:
-			sTemp = append(sTemp, fmtWoJ(s.Contents()))
-		case footnote:
-			sTemp = append(sTemp, fmtFootnote(s))
-		default:
-			sTemp = append(sTemp, s.Text())
-		}
+		textTemp = analyseClass(s, textTemp)
 	}
-	sFull := str(sTemp)
-	return sFull
+	textFmtd := str(textTemp)
+	vFmtd = append(vTemp, textFmtd)
+	return
 }
 
-func fmtWoJ(sel *goquery.Selection) string {
+func analyseClass(s *goquery.Selection, textTemp []string) (textFmtd []string) {
+	class, _ := s.Attr("class")
+	woj := strings.Contains(class, "woj")              // Words of Jesus
+	footnote := strings.Contains(class, "footnote")    // Footnote
+	smallCaps := strings.Contains(class, "small-caps") // Small-caps (e.g., "LORD")
+	switch {
+	case woj:
+		textFmtd = fmtWoJ(s.Contents(), textTemp)
+		return
+	case footnote:
+		textFmtd = fmtFootnote(s, textTemp)
+		return
+	case smallCaps:
+		textFmtd = fmtSmallCaps(s, textTemp)
+		return
+	default:
+		textFmtd = append(textTemp, s.Text())
+		return
+	}
+}
+
+func fmtWoJ(sel *goquery.Selection, textTemp []string) (textFmtd []string) {
 	var wojTemp []string
-	wojTemp = append(wojTemp, "<FR>")
+	wojTemp = append(wojTemp, "<FR>") // Opening tag for words of Jesus
 	for i := range sel.Nodes {
+		// For each html segment of Jesus's words:
 		s := sel.Eq(i)
-		class, _ := s.Attr("class")
-		footnote := strings.Contains(class, "footnote")
-		if footnote {
-			wojTemp = append(wojTemp, fmtFootnote(s))
-		} else {
-			wojTemp = append(wojTemp, s.Text())
-		}
+		wojTemp = analyseClass(s, wojTemp) //    Words of Jesus
 	}
-	wojTemp = append(wojTemp, "<Fr>")
-	wojFull := str(wojTemp)
-	return wojFull
+	wojTemp = append(wojTemp, "<Fr>") // Closing tag for words of Jesus
+	wojFmtd := str(wojTemp)
+	textFmtd = append(textTemp, wojFmtd)
+	return
 }
 
-func fmtFootnote(s *goquery.Selection) string {
+func fmtFootnote(s *goquery.Selection, textTemp []string) (textFmtd []string) {
 	var fTemp []string
 	fnLetter := s.Find("a").Text()
-	fnText := footnoteMap[fnLetter]
+	fnText := footnoteMap[fnLetter] // Footnote text that was marked earlier.
 	fTemp = append(fTemp, "<RF>", fnText, "<Rf>")
-	fFull := str(fTemp)
-	return fFull
+	footnoteFmtd := str(fTemp)
+	textFmtd = append(textTemp, footnoteFmtd)
+	return
 }
 
-func cleanIndent(vClass []string) []string {
+func fmtSmallCaps(s *goquery.Selection, textTemp []string) (textFmtd []string) {
+	textFmtd = append(textTemp, strings.ToUpper(s.Text()))
+	return
+}
+
+func cleanIndentTags(vTemp []string) (vFmtd []string) {
 	var iTemp []string
 	var foundFirst bool
-	foundFirst = true
-	for _, s := range vClass {
+	for _, s := range vTemp {
 		if strings.Contains(s, "<PI1>") {
 			switch foundFirst {
-			case true:
-				foundFirst = false
+			case false:
+				//If line IS the first one in the verse,
+				//    keep it single-indented.
+				foundFirst = true
 				iTemp = append(iTemp, s)
-			default:
+			case true:
+				//If line is NOT the first one in the verse,
+				//    double its indentation.
 				new := strings.Replace(s, "<PI1>", "<PI2>", -1)
 				iTemp = append(iTemp, new)
 			}
@@ -353,5 +446,6 @@ func cleanIndent(vClass []string) []string {
 			iTemp = append(iTemp, s)
 		}
 	}
-	return iTemp
+	vFmtd = iTemp
+	return
 }

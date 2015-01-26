@@ -87,6 +87,10 @@ func PrintCenter(t string) {
 	fmt.Printf("%v%v%v\n", s, t, s)
 }
 
+func printRemovedFile(fileName string) {
+	Black.Println("Removed", fileName)
+}
+
 func Break(s string) {
 	fmt.Println(strings.Repeat(s, 79))
 }
@@ -97,10 +101,6 @@ func Line() {
 
 func BLine() {
 	Break("=")
-}
-
-func printRemovedFile(fileName string) {
-	fmt.Println("Removed", fileName)
 }
 
 func progressTranslation() {

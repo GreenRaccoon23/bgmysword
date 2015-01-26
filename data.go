@@ -39,7 +39,7 @@ var (
 		{16, "Nehemiah", 13},
 		{17, "Esther", 10},
 		{18, "Job", 42},
-		{19, "Psalms", 150},
+		{19, "Psalm", 150},
 		{20, "Proverbs", 31},
 		{21, "Ecclesiastes", 12},
 		{22, "Song+of+Solomon", 8},

@@ -17,6 +17,7 @@ type BibleArchive struct {
 }
 
 var (
+	logger          *log.Logger
 	db              *sql.DB
 	tx              *sql.Tx
 	sqlStmtInsBible string         = `insert into Bible values(?,?,?,?)`
@@ -90,7 +91,32 @@ var (
 	}
 )
 
-func genBible() {
+func GenLog() (logFile *os.File) {
+	var err error
+	fileName := "bgmysword.log"
+	if _, err = os.Stat(fileName); err == nil {
+		os.Remove(fileName)
+		printRemovedFile(fileName)
+	}
+	logFile, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return
+	}
+	logger = log.New(logFile, "logger: ", log.Lshortfile)
+	return
+}
+
+func CloseLog(logFile *os.File) {
+	logFile.Close()
+}
+
+func Log(s ...interface{}) {
+	if logMe {
+		logger.Print(s...)
+	}
+}
+
+func GenModule() {
 	ext := ".bbl.mybible"
 	fileName := str([]string{translation, ext})
 	if _, err := os.Stat(fileName); err == nil {

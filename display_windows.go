@@ -54,6 +54,17 @@ func ImgINRI() {
 	PrintSlice(image)
 }
 
+func Exit() {
+	os.Exit(0)
+}
+
+func printHelp() {
+	defer Exit()
+	fmt.Printf(
+		"How to use:\n    bgmysword <translation>\nExample:\n    bgmysword KJV\n",
+	)
+}
+
 func PrintSlice(sl []string) {
 	for _, st := range sl {
 		PrintCenterLines(st)

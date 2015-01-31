@@ -29,6 +29,18 @@ func ColorUnset() {
 	color.Unset()
 }
 
+func Exit() {
+	os.Exit(0)
+}
+
+func printHelp() {
+	defer Exit()
+	defer ColorUnset()
+	BGreen.Printf(
+		"How to use:\n    bgmysword <translation>\nExample:\n    bgmysword KJV\n",
+	)
+}
+
 func ImgSword() {
 	/*	  ,
 	     //

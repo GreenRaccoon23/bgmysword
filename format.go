@@ -9,21 +9,30 @@ var (
 	buffer bytes.Buffer
 )
 
-func str(slice []string) string {
+func str(slice []string) (concatenated string) {
 	for _, s := range slice {
 		buffer.WriteString(s)
 	}
-	concatenated := buffer.String()
+	concatenated = buffer.String()
 	buffer.Reset()
-	return concatenated
+	return
 }
 
 func slc(args ...string) []string {
 	return args
 }
 
-func combine(args ...string) string {
+func concat(args ...string) string {
 	return str(args)
+}
+
+func IsNotEmpty(s string) bool {
+	switch s {
+	case "":
+		return false
+	default:
+		return true
+	}
 }
 
 func appendCombine(slice []string, args ...string) (combined string) {
@@ -32,7 +41,7 @@ func appendCombine(slice []string, args ...string) (combined string) {
 	return
 }
 
-func strLast(s string) string {
+func lastLetter(s string) string {
 	last := len(s) - 1
 	return string([]rune(s)[last])
 }

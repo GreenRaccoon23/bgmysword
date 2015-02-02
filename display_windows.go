@@ -99,7 +99,7 @@ func PrintCenter(t string) {
 }
 
 func printRemovedFile(fileName string) {
-	Black.Println("Removed", fileName)
+	fmt.Println("Removed", fileName)
 }
 
 func Break(s string) {
@@ -119,9 +119,23 @@ func progressTranslation() {
 	fmt.Println(transName)
 }
 
-func progressBook(title, titleSpacing, numSpacing string, currNum, totalNum int) {
+func progressBook(index int) {
+	var spacingNumber string = ""
+
+	book := Bible[index].Book
+	bookTitle := strings.Replace(book, "+", " ", -1)
+
+	numberOfSpaces := 30 - len(bookTitle)
+	spacingTitle := strings.Repeat(" ", numberOfSpaces)
+
+	bookNumber := index + 1
+
+	if bookNumber < 10 {
+		spacingNumber = " "
+	}
+
 	fmt.Printf("\r=>%v%v%v%d/%d\n",
-		title, titleSpacing, numSpacing, currNum, totalNum)
+		bookTitle, spacingTitle, spacingNumber, bookNumber, 66)
 }
 
 func progressChapter(current, total int) {

@@ -3,9 +3,10 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/fatih/color"
 	"os"
 	"strings"
+
+	"github.com/fatih/color"
 	//"github.com/PuerkitoBio/goquery"
 	//"github.com/mattn/go-sqlite3"
 )
@@ -172,9 +173,23 @@ func progressTranslation() {
 	BWhite.Println(transName)
 }
 
-func progressBook(title, titleSpacing, numSpacing string, currNum, totalNum int) {
+func progressBook(index int) {
+	var spacingNumber string = ""
+
+	book := Bible[index].Book
+	bookTitle := strings.Replace(book, "+", " ", -1)
+
+	numberOfSpaces := 30 - len(bookTitle)
+	spacingTitle := strings.Repeat(" ", numberOfSpaces)
+
+	bookNumber := index + 1
+
+	if bookNumber < 10 {
+		spacingNumber = " "
+	}
+
 	BGreen.Printf("\r=>%v%v%v%d/%d\n",
-		title, titleSpacing, numSpacing, currNum, totalNum)
+		bookTitle, spacingTitle, spacingNumber, bookNumber, 66)
 }
 
 func progressChapter(current, total int) {

@@ -2,10 +2,11 @@ package main
 
 import (
 	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
 	"time"
+
+	_ "github.com/mattn/go-sqlite3"
 	//"github.com/PuerkitoBio/goquery"
 	//"github.com/fatih/color"
 )
@@ -18,6 +19,7 @@ type BibleArchive struct {
 
 var (
 	logger          *log.Logger
+	logFile         *os.File
 	db              *sql.DB
 	tx              *sql.Tx
 	sqlStmtInsBible string         = `insert into Bible values(?,?,?,?)`
@@ -91,28 +93,33 @@ var (
 	}
 )
 
-func GenLog() (logFile *os.File) {
+func GenLog() {
 	var err error
-	fileName := "bgmysword.log"
-	if _, err = os.Stat(fileName); err == nil {
-		os.Remove(fileName)
-		printRemovedFile(fileName)
+	logFileName := "bgmysword.log"
+
+	if _, err = os.Stat(logFileName); err == nil {
+		os.Remove(logFileName)
+		printRemovedFile(logFileName)
 	}
-	logFile, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+
+	logFile, err = os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return
 	}
+
 	logger = log.New(logFile, "logger: ", log.Lshortfile)
 	return
 }
 
-func CloseLog(logFile *os.File) {
-	logFile.Close()
+func CloseLog() {
+	if logMe {
+		logFile.Close()
+	}
 }
 
 func Log(s ...interface{}) {
 	if logMe {
-		logger.Print(s...)
+		logger.Print(s)
 	}
 }
 
@@ -147,6 +154,11 @@ func GenModule() {
 		log.Fatal(err)
 	}
 	sqlInsDetails()
+}
+
+func CloseModule() {
+	tx.Commit()
+	db.Close()
 }
 
 func sqlCrt(sqlStmt string) {

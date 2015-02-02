@@ -28,7 +28,12 @@ func init() {
 
 func AnalyseArgs() {
 	numArgs := len(os.Args)
-	if numArgs > 1 {
+	switch numArgs {
+	case 3:
+		logMe = true
+		GenLog()
+		fallthrough
+	case 2:
 		switch os.Args[1] {
 		case "h", "-h", "help", "-help":
 			printHelp()
@@ -36,10 +41,10 @@ func AnalyseArgs() {
 			translation = os.Args[1]
 		}
 
-	}
-	if numArgs > 2 {
-		logMe = true
-		GenLog()
+		return
+	default:
+		translation = inputTranslation()
+		return
 	}
 }
 

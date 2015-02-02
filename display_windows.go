@@ -151,22 +151,16 @@ func Input() (answer string) {
 
 func inputTranslation() (answer string) {
 	fmt.Println(
-		"No translation specified.",
-	)
-	fmt.Println(
-		"(You can specify the translation by typing 'bgmysword XXX')",
-	)
-	fmt.Println(
 		"Enter the abbreviation of the translation to download",
 	)
 	fmt.Println(
 		"  using the same abbreviation that biblegateway.com uses.",
 	)
 	fmt.Println(
-		"(They're listed at biblegateway.com/versions)",
+		"(They're listed at 'biblegateway.com/versions')",
 	)
 	fmt.Printf(
-		"==> ",
+		"\n==> ",
 	)
 	answer = Input()
 	return
